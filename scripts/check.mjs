@@ -86,7 +86,7 @@ if (module) {
   }
 }
 
-// 4.5) 强调上限：一行最多 3 处（1 状态 + 2 量/标识符），且必须至少命中 1 处
+// 4.5) 强调上限：一行最多 5 处（至多 2 状态 + 3 量/标识符），且必须至少命中 1 处
 if (module) {
   const flatten = (node, out = []) => {
     if (Array.isArray(node)) { for (const item of node) flatten(item, out); return out }
@@ -112,7 +112,7 @@ if (module) {
     const body = rows[0].children[1]
     const parts = Array.isArray(body.children[0]) ? body.children[0] : (body.children || [])
     const emphasised = parts.filter((node) => node && node.type === 'span')
-    if (emphasised.length > 3) fail('too many emphasised fragments: ' + emphasised.length + ' (max 3 per line)')
+    if (emphasised.length > 5) fail('too many emphasised fragments: ' + emphasised.length + ' (max 5 per line)')
     else if (emphasised.length < 1) fail('no emphasised fragment on a line that has keywords')
     else ok('emphasis cap respected (' + emphasised.length + ' fragments: ' +
       emphasised.map((node) => (node.children || []).join('')).join(' / ') + ')')

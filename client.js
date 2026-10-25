@@ -59,60 +59,77 @@ window.__ModuleLoader__.load({
       return bodyStyle
     }
 
-    // 着色规则（扫读友好版）：
-    // 1) 每行最多强调两处：一处“状态色”+ 一处“量/标识符”，其余保持正文色；
-    // 2) 状态色只三种语义：蓝=进行中、绿=已完成、红=需注意；
-    // 3) 标识符用等宽字形 + 弱紫，不抢主色；数字加粗，便于一眼看到量级。
+    // 着色规则 v2（词表更全、颜色更多，但仍保证一行不会花到没法读）：
+    // 1) 状态色五档：红=风险、绿=完成、琥珀=等待/待确认、青=验证/排查、蓝=进行中；
+    // 2) 标识符四档：弱紫等宽=代码与文件、橙等宽=版本号、粉=配置/密钥/环境变量、加粗=数量；
+    // 3) 每行最多 5 处强调（至多 2 个状态词 + 3 个标识符），其余保持正文色。
+    const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
     const PALETTE = {
-      risk: { color: '#ef5350', fontWeight: 600 },
-      done: { color: '#4caf50', fontWeight: 600 },
-      progress: { color: '#42a5f5' },
-      code: { color: '#b39ddb', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' },
-      num: { fontWeight: 600 },
+      risk: { color: '#ef5350', fontWeight: 700 },
+      done: { color: '#4caf50', fontWeight: 700 },
+      wait: { color: '#ffb74d', fontWeight: 600 },
+      verify: { color: '#4dd0e1', fontWeight: 600 },
+      progress: { color: '#42a5f5', fontWeight: 600 },
+      config: { color: '#f06292', fontWeight: 600 },
+      ver: { color: '#ffa726', fontFamily: MONO },
+      code: { color: '#b39ddb', fontFamily: MONO },
+      num: { fontWeight: 700 },
     }
-    // 同一位置优先取风险，其次完成，最后进行中。
+    // 顺序即优先级：同一位置先命中风险，再完成、等待、验证、进行中。
     const STATE_RULES = [
-      ['risk', /失败|风险|阻塞|无法|报错|崩溃|错误|缺失|未完成|待确认|回滚|白屏|超时/g],
-      ['done', /完成|已修复|通过|已确认|就绪|成功|恢复|已解决|已生效|已装好/g],
-      ['progress', /正在|下一步|接下来|继续|开始|准备|计划|待办/g],
+      ['risk', /失败|报错|错误|异常|崩溃|阻塞|超时|白屏|回滚|缺失|遗漏|偏差|不一致|未完成|不可用|不生效|无效|风险|冲突|拒绝|限流|弃用|卡住|挂了|打不开|不显示|无法启动/g],
+      ['done', /完成|已修复|修复完成|通过|已确认|确认无误|就绪|成功|已恢复|已解决|已生效|已装好|已发布|已推送|已合并|已清理|已对齐|已上线|跑通|打通|搞定|修好|装好|部署完成/g],
+      ['wait', /等待|待确认|待定|待办|待验证|待补|待测|挂起|暂停|冷却|排队|尚未|还没|暂缓|稍后/g],
+      ['verify', /验证|核对|比对|检查|测试|复测|复验|自检|体检|回归|排查|定位|复现|断言|审计|确认|抽查/g],
+      ['progress', /正在|下一步|接下来|继续|开始|准备|计划|进行中|处理中|即将|马上|着手|尝试|并行/g],
     ]
     const MEASURE_RULES = [
       ['code', /`[^`]{1,80}`/g],
-      ['code', /[A-Za-z0-9_./-]+[.](?:js|mjs|cjs|ts|tsx|py|yml|yaml|json|md|ps1|cmd|vbs|exe|zstd)/g],
-      ['num', /[0-9]+(?:[.][0-9]+)?[ ]?(?:%|条|次|秒|毫秒|ms|s|分钟|小时|个|处|轮|行|步|MB|KB|GB|tok|tokens)/g],
+      ['code', /[A-Za-z0-9_./-]+[.](?:js|mjs|cjs|ts|tsx|py|yml|yaml|json|md|ps1|cmd|vbs|exe|zstd|tgz|log)/g],
+      ['ver', /v?[0-9]+[.][0-9]+[.][0-9]+(?:-[A-Za-z0-9.]+)?/g],
+      ['config', /OPENCODE_[A-Z_]+|DSH_[A-Z_]+|API[ _]?[Kk]ey|apiKeyEnv|_authToken|凭据|密钥|环境变量|cordis[.]patch[.]yml|[.]npmrc|profile|依赖|插件/g],
+      ['num', /[0-9]+(?:[.][0-9]+)?[ ]?(?:%|条|次|秒|毫秒|ms|s|分钟|小时|个|处|轮|行|步|项|段|份|倍|页|层|版|档|套|批|天|周|MB|KB|GB|tok|tokens|字)/g],
     ]
-    /** 第一个命中的状态词（风险 > 完成 > 进行中，取文本中最靠前者）。 */
-    function firstStateHit(text) {
-      let best = null
+
+    /** 至多 max 个状态词，互不重叠；风险优先于完成、等待、验证、进行中。 */
+    function stateHits(text, max) {
+      const hits = []
       for (const [kind, pattern] of STATE_RULES) {
         pattern.lastIndex = 0
-        const match = pattern.exec(text)
-        if (!match) continue
-        if (best === null || match.index < best.start) {
-          best = { start: match.index, end: match.index + match[0].length, kind, text: match[0] }
+        let match
+        let guard = 0
+        // 防御：正则若因缺 g 标志而原地打转，最多扫 200 次就停，绝不让面板卡住界面线程。
+        while ((match = pattern.exec(text)) !== null && guard < 200) {
+          guard += 1
+          if (pattern.lastIndex === match.index) pattern.lastIndex += 1
+          const hit = { start: match.index, end: match.index + match[0].length, kind, text: match[0] }
+          if (hits.some((other) => hit.start < other.end && other.start < hit.end)) continue
+          hits.push(hit)
+          if (hits.length >= max) break
         }
+        if (hits.length >= max) break
       }
-      return best
+      return hits.sort((left, right) => left.start - right.start)
     }
 
     /** 至多 count 个“量/标识符”，跳过与状态词重叠的部分。 */
-    function measureHits(text, state, count) {
+    function measureHits(text, states, count) {
       const hits = []
       for (const [kind, pattern] of MEASURE_RULES) {
         pattern.lastIndex = 0
         let match
         let guard = 0
-        // 防御：正则若因缺 g 标志而原地打转，这里最多扫 200 次就停，
-        // 绝不让面板把界面线程卡死。
         while ((match = pattern.exec(text)) !== null && guard < 200) {
           guard += 1
           const hit = { start: match.index, end: match.index + match[0].length, kind, text: match[0] }
           if (pattern.lastIndex === match.index) pattern.lastIndex += 1
-          const overlaps = (state !== null && hit.start < state.end && state.start < hit.end) ||
+          const overlaps = states.some((state) => hit.start < state.end && state.start < hit.end) ||
             hits.some((other) => hit.start < other.end && other.start < hit.end)
           if (overlaps) continue
           hits.push(hit)
+          if (hits.length >= count) break
         }
+        if (hits.length >= count) break
       }
       hits.sort((left, right) => left.start - right.start)
       return hits.slice(0, count)
@@ -120,9 +137,9 @@ window.__ModuleLoader__.load({
 
     /** 把一行切成「普通文本 / 强调片段」，强调点严格限量。 */
     function segments(text) {
-      const state = firstStateHit(text)
-      const measures = measureHits(text, state, 2)
-      const hits = (state === null ? measures : measures.concat([state])).sort((left, right) => left.start - right.start)
+      const states = stateHits(text, 2)
+      const measures = measureHits(text, states, 3)
+      const hits = states.concat(measures).sort((left, right) => left.start - right.start)
       const parts = []
       let cursor = 0
       for (const hit of hits) {
