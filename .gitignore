@@ -1,0 +1,8 @@
+node_modules/
+*.tgz
+.DS_Store
+
+# 本地备份与临时文件
+*.bak-*
+_*.ps1
+_*.mjs

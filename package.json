@@ -1,0 +1,70 @@
+{
+  "name": "dsh-plugin-progress-summary-history",
+  "version": "0.1.4",
+  "private": false,
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": []
+    },
+    "compatibility": {
+      "dshReleases": [
+        "0.2.1-rc.2"
+      ]
+    }
+  },
+  "description": "DSH 右侧栏「进度历史」面板：把 dsh-progress-summary 写下的进度播报记录按时间列出，跟随当前会话，最新一条更大更醒目。",
+  "license": "MIT",
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "progress",
+    "sidebar",
+    "history",
+    "dsh",
+    "progress-summary",
+    "timeline",
+    "播报"
+  ],
+  "engines": {
+    "node": "^22.19 || >=24"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "README.md",
+    "README.zh.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "NOTICE",
+    "scripts",
+    "docs"
+  ],
+  "scripts": {
+    "check": "node ./scripts/check.mjs",
+    "doctor": "node scripts/doctor.mjs",
+    "config:check": "node scripts/apply-profile-config.mjs",
+    "config:fix": "node scripts/apply-profile-config.mjs --fix",
+    "verify:narrator": "node scripts/verify-narrator.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/neoiw0/dsh-plugin-progress-summary-history.git"
+  },
+  "homepage": "https://github.com/neoiw0/dsh-plugin-progress-summary-history#readme",
+  "bugs": {
+    "url": "https://github.com/neoiw0/dsh-plugin-progress-summary-history/issues"
+  }
+}

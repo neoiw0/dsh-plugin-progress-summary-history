@@ -1,0 +1,5 @@
+# 进度历史：把 plugin:progress-summary/line 记录折成投影，供右侧栏面板读取。
+# 只读投影，不注入任何面向模型的内容。
+- insert:
+    - id: progress-history
+      name: dsh-plugin-progress-summary-history

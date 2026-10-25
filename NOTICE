@@ -1,0 +1,21 @@
+dsh-progress-history
+====================
+
+This package is an independent DSH plugin (MIT). It does not contain code from
+other packages; it reads a session record format produced by a separate
+third-party plugin.
+
+Data source it consumes
+-----------------------
+- Plugin:  dsh-progress-summary  (MIT, https://github.com/tastynoob/dsh-progress-summary)
+- Record:  plugin:progress-summary/line  (an "ignorable" session plugin record)
+- Fields:  { line: string, state: string, turn: number, at: number, calls: number }
+
+That record type is owned by dsh-progress-summary. This package only reads it
+through DSH's public plugin-record and session-projection APIs
+(`@deepseek-ai/dsh-session`, `@deepseek-ai/dsh-session-projection`). If the
+upstream plugin is not installed, this panel renders an explanatory empty state.
+
+DSH itself (DeepSeek Harness) is a separate MIT-licensed product; this package
+uses only its documented extension points (bundle patch, client module loader,
+slots, sidebarRightTabs).
