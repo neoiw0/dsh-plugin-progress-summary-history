@@ -62,8 +62,12 @@ const PLUGIN_BLOCK = `
 const toEol = (block, eol) => (eol === LF ? block : block.split(LF).join(eol))
 
 const raw = readFileSync(patchPath, 'utf8')
-const eol = raw.includes(CR + LF) ? CR + LF : LF
-const lines = raw.split(eol)
+// 换行符可能混用（历史编辑留下的 CRLF + LF）。按 LF 切分再剥掉行尾 CR，
+// 否则「一看到 CRLF 就按 CRLF 切」会把整个文件切成几段，误报「缺少 provider 块」。
+const crlfCount = raw.split(CR + LF).length - 1
+const lfCount = raw.split(LF).length - 1
+const eol = crlfCount > lfCount / 2 ? CR + LF : LF
+const lines = raw.split(LF).map((line) => (line.endsWith(CR) ? line.slice(0, -1) : line))
 const report = []
 
 const providerIndex = lines.findIndex((line) => line.trim() === 'opencode-go-free:')

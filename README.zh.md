@@ -100,21 +100,32 @@ MIT，见 `LICENSE`；数据来源声明见 `NOTICE`。
 3. **profile 配置可自愈**：`npm run config:check` 只报告，`npm run config:fix` 幂等补回
    provider 块与播报配置行（写入前自动备份）。这两块曾被别的流程整体重置，症状是播报行消失。
 
-## 播报（bar）用哪个模型：只能用免费档，且要控频
+## 播报（bar）用哪个模型：免费档已反复下线，先用探测器确认
 
-2026-10-24 实测结论（同一天反复踩过，记下来省得重来）：
+2026-10-26 实测：**当前没有任何可用的免费模型**。
 
-| 尝试 | 结果 |
+| 模型 | 状态 |
 |---|---|
-| `minimax-m3.1-flash-free`（曾可用） | HTTP 410 `ModelDeprecated`，官方已下线 |
-| Zen 免费档（`mimo-v2.6-flash-free`/`glm-5.3-flash-free`/`deepseek-v4.1-flash-free` 等） | HTTP 403 `FreeTierError`：只允许 OpenCode 官方客户端调用 |
-| `beam-free` | 部分地区 HTTP 403 `RegionError` |
-| **`longcat-2.5-preview-free`**（go 端点） | **可用**：价格 0/0、约 5-6 秒出文 |
+| `longcat-2.5-preview-free` | **HTTP 410 已下线**（前一天还能用，一天后就没了） |
+| `beam-free` | HTTP 403 锁区（This model is not available in your country） |
+| `iceman-contributor-free` | HTTP 503 上游暂不可用 |
+| Zen 免费档（`public` 密钥） | HTTP 403，只允许 OpenCode 官方客户端 |
 
-关键细节：这个免费模型有**突发限流**（约每 15 秒 3 次），超限返回
-`429 {"message":"Upstream request failed: Endpoint is unavailable."}`；
-DSH 适配器会把它吞成“空响应”，播报插件只记 `chars=0` 而不报错 —— 表现就是**bar 静默消失**。
-因此播报配置里 `minIntervalMs` 用 45000（45 秒一次），稳稳落在免费额度内。
+历史教训：`minimax-m3.1-flash-free`（410 下线）→ `longcat-2.5-preview-free`（410 下线）。
+**免费模型是限时的，不要写死在文档里当作长期方案。**
 
-诊断这类问题时不要靠猜：`npm run verify:narrator` 会直接告诉你配置是否生效、
-模型是否出文（`chars=0`）、以及是否发布了播报行。
+随时用探测器确认当前情况：
+
+```bash
+npm run probe:free          # 只测名字带 free 的
+npm run probe:free -- --all # 连付费的一起测
+```
+
+探测到可用模型后，把 `cordis.patch.yml` 里 `progress-summary` 的 `model` 改成它，重启 DSH 即可。
+
+### 其它两个坑（与模型无关）
+
+- **网关强制要求 `x-opencode-session` 请求头**，缺了直接 `400 Request is missing x-opencode-session`。
+  provider 块里必须有 `headers: { x-opencode-session: <任意本地标识> }`。
+- **profile 配置的换行符可能混用**（CRLF + LF）。`npm run config:check` 已能正确处理混用，
+  但如果你手改过文件，跑一次 `config:check` 确认没误报。

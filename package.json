@@ -57,7 +57,8 @@
     "doctor": "node scripts/doctor.mjs",
     "config:check": "node scripts/apply-profile-config.mjs",
     "config:fix": "node scripts/apply-profile-config.mjs --fix",
-    "verify:narrator": "node scripts/verify-narrator.mjs"
+    "verify:narrator": "node scripts/verify-narrator.mjs",
+    "probe:free": "node scripts/probe-free-models.mjs"
   },
   "repository": {
     "type": "git",
