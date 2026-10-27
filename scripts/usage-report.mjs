@@ -72,10 +72,15 @@ function readCalls() {
   for (const line of lines) {
     if (!line.startsWith('202')) continue
     const day = line.slice(0, 10)
-    const bucket = result.get(day) || { calls: 0, chars: 0 }
+    const bucket = result.get(day) || { calls: 0, chars: 0, empty: 0, ok: 0 }
     if (line.includes('prepareCall ok')) bucket.calls += 1
     const match = line.match(/stream done chars=(\d+)/)
-    if (match) bucket.chars += Number(match[1])
+    if (match) {
+      const size = Number(match[1])
+      bucket.chars += size
+      if (size === 0) bucket.empty += 1
+      else bucket.ok += 1
+    }
     result.set(day, bucket)
   }
   return result
@@ -83,7 +88,15 @@ function readCalls() {
 
 const usage = await fetchUsage()
 const calls = readCalls()
-const today = new Date().toISOString().slice(0, 10)
+
+/** 日志首行是启动头：说明日志每次重启会被重置，统计窗口从那时开始。 */
+function logWindow() {
+  if (!existsSync(DEBUG_LOG)) return '(没有日志)'
+  const first = readFileSync(DEBUG_LOG, 'utf8').split(String.fromCharCode(10))[0] || ''
+  const match = first.match(/(\d{4}-\d{2}-\d{2}T[\d:.]+Z)/)
+  if (!match) return '(未知)'
+  return '自 ' + new Date(match[1]).toLocaleString('zh-CN') + ' 起（每次重启会重置）'
+}
 
 console.log('=== 官方额度（账号级，含所有模型）')
 for (const [name, label] of [['rolling', '滚动窗口'], ['weekly', '本周'], ['monthly', '本月']]) {
@@ -95,14 +108,21 @@ for (const [name, label] of [['rolling', '滚动窗口'], ['weekly', '本周'], 
 
 console.log('')
 console.log('=== 播报调用（本地日志，最近 ' + days + ' 天）')
+console.log('  日志覆盖：' + logWindow())
 const dayList = [...calls.keys()].sort().slice(-days)
 let totalCalls = 0
 let totalChars = 0
+let totalOk = 0
+let totalEmpty = 0
 for (const day of dayList) {
   const bucket = calls.get(day)
   totalCalls += bucket.calls
   totalChars += bucket.chars
-  console.log('  ' + day + '  调用 ' + String(bucket.calls).padStart(4) + ' 次   输出 ' + String(bucket.chars).padStart(6) + ' 字')
+  totalOk += bucket.ok || 0
+  totalEmpty += bucket.empty || 0
+  console.log('  ' + day + '  调用 ' + String(bucket.calls).padStart(4) + ' 次（成功 ' +
+    String(bucket.ok || 0).padStart(3) + ' / 空 ' + String(bucket.empty || 0).padStart(3) +
+    '）  输出 ' + String(bucket.chars).padStart(6) + ' 字')
 }
 if (dayList.length === 0) console.log('  (日志里没有调用记录)')
 
@@ -115,7 +135,11 @@ console.log('=== 播报用量估算（可复核）')
 console.log('  调用次数        ' + totalCalls + ' 次')
 console.log('  输入 token      ' + promptTokens + '（每次按实测 ' + CALIBRATION.promptTokens + ' 计）')
 console.log('  输出 token      ' + completionTokens + '（输出 ' + totalChars + ' 字 × ' + CALIBRATION.completionPerChar + '）')
-console.log('  估算花费        $' + cost.toFixed(6) + '  ≈ ' + (cost * 7.1).toFixed(3) + ' 元')
+const costLower = (totalOk * CALIBRATION.promptTokens * CALIBRATION.priceIn +
+  Math.round(totalChars * CALIBRATION.completionPerChar) * CALIBRATION.priceOut) / 1e6
+console.log('  估算花费        $' + costLower.toFixed(6) + ' ~ $' + cost.toFixed(6) +
+  '  ≈ ' + (costLower * 7.1).toFixed(3) + ' ~ ' + (cost * 7.1).toFixed(3) + ' 元')
+console.log('  区间含义        下界＝只算成功出文的调用；上界＝把被中断的空调用也按满额算')
 console.log('  占月额度        ' + ((cost / CALIBRATION.monthlyQuotaUsd) * 100).toFixed(4) + '%（月额度 $' + CALIBRATION.monthlyQuotaUsd + '）')
 console.log('  换算            月额度的 1% ≈ $' + (CALIBRATION.monthlyQuotaUsd / 100).toFixed(2) + ' ≈ ' +
   Math.round((CALIBRATION.monthlyQuotaUsd / 100) / (cost / Math.max(totalCalls, 1))) + ' 次播报')
