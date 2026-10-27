@@ -58,7 +58,9 @@
     "config:check": "node scripts/apply-profile-config.mjs",
     "config:fix": "node scripts/apply-profile-config.mjs --fix",
     "verify:narrator": "node scripts/verify-narrator.mjs",
-    "probe:free": "node scripts/probe-free-models.mjs"
+    "probe:free": "node scripts/probe-free-models.mjs",
+    "usage": "node scripts/usage-report.mjs",
+    "usage:record": "node scripts/usage-report.mjs --record"
   },
   "repository": {
     "type": "git",

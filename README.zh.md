@@ -100,28 +100,91 @@ MIT，见 `LICENSE`；数据来源声明见 `NOTICE`。
 3. **profile 配置可自愈**：`npm run config:check` 只报告，`npm run config:fix` 幂等补回
    provider 块与播报配置行（写入前自动备份）。这两块曾被别的流程整体重置，症状是播报行消失。
 
-## 播报（bar）用哪个模型：免费档已反复下线，先用探测器确认
+## 播报（bar）用哪个模型：免费档已全线阵亡，实测最省的是 GLM-5.3-Flash
 
-2026-10-26 实测：**当前没有任何可用的免费模型**。
+2026-10-27 实测：**没有任何可用的免费模型**，已切换到付费但极便宜的 `glm-5.3-flash`。
 
-| 模型 | 状态 |
+| 免费模型 | 状态 |
 |---|---|
-| `longcat-2.5-preview-free` | **HTTP 410 已下线**（前一天还能用，一天后就没了） |
-| `beam-free` | HTTP 403 锁区（This model is not available in your country） |
-| `iceman-contributor-free` | HTTP 503 上游暂不可用 |
-| Zen 免费档（`public` 密钥） | HTTP 403，只允许 OpenCode 官方客户端 |
+| `longcat-2.5-preview-free` | HTTP 410 已下线（前一天还能用） |
+| `beam-free` / `muse-spark-*-contributor` | HTTP 403 锁区 |
+| `iceman-contributor-free` | HTTP 503 上游不可用 |
+| `deepseek-v4.1-flash-free` | 免费额度用尽 / 仅 OpenCode 官方客户端 |
+| Zen 免费档（`public` 密钥） | HTTP 403 |
 
-历史教训：`minimax-m3.1-flash-free`（410 下线）→ `longcat-2.5-preview-free`（410 下线）。
-**免费模型是限时的，不要写死在文档里当作长期方案。**
+### 为什么是 GLM-5.3-Flash（实测，不是看价目表猜的）
 
-随时用探测器确认当前情况：
+用播报真实的 prompt（约 130 输入 token、256 token 预算）逐个打表：
+
+| 模型 | 思考字符 | 耗时 | 每次成本 | 月额度 | 结论 |
+|---|---|---|---|---|---|
+| **glm-5.3-flash** | **0** | **2.4s** | **$0.000026** | $60 | ✅ 唯一不思考、最快、最便宜 |
+| mimo-v2.6-flash | 190 | 3.5s | $0.000034 | $60 | 思考型 |
+| deepseek-v4.1-flash | 225 | 2.6s | $0.000060 | $80 | 思考型，贵 2.3 倍 |
+| qwen3.8-flash | 333 | 4.7s | $0.00012 | $30 | 思考吃太多 |
+| hy3 / minimax-m3.1-flash | 256/559 | 7.4/8.0s | — | — | 思考吃光预算，正文 0 字 |
+
+三个容易踩的判断错误：
+
+1. **「DeepSeek 月额度 $80 所以更划算」不成立**：GLM 也有 $60（同样是 $10 订阅的杠杆），只差 1.33 倍；
+   而 DeepSeek 的 `reasoning_effort: off` **关不掉思考**（实测仍思考 209 字），思考 token 按输出价计费，实测每次贵 2.3 倍。
+2. **「缓存读便宜 10 倍」对我们无效**：实测同一请求连发两次，`cached_tokens` 都是 **0**。
+   原因：整条 prompt 只有 113~130 token（低于缓存门槛），且可变部分在后面。
+3. **官网的「预估请求数」不能直接套用**：那是按编码 agent 画像算的
+   （DeepSeek 每次 410 输入 + **71,300 缓存** + 310 输出），播报没有缓存、prompt 极小，结论会反过来。
+
+### GLM 能不能关掉思考（字段级证据）
+
+| `reasoning_effort` | 思考字符 | 返回字段 |
+|---|---|---|
+| 不传 | 0 | 有 `reasoning_content` 但为空 |
+| `off` | 0 | **连 `reasoning_content` 都不返回** |
+| `high` | 32 | 出现 `reasoning` 字段（说明能思考，只是默认不思考） |
+
+所以配置里保持 `effort: 'off'` 即可确定性关闭思考。
+
+
+### 用量怎么核对（月额度）
+
+官方提供额度接口，本地提供调用记录，两边都能复核：
+
+```bash
+npm run usage           # 当前额度 + 最近 1 天的播报用量估算
+npm run usage:record    # 顺便存一份快照到 ~/.dsh/narrator-usage.jsonl
+npm run usage -- --days 7
+```
+
+官方接口 `GET https://opencode.ai/zen/go/v1/usage` 返回三个窗口的已用百分比（账号级，含所有模型）：
+
+```
+rolling  滚动窗口   weekly 本周   monthly 本月
+```
+
+本地日志 `~/.dsh/progress-summary-debug.log` 里每个 `prepareCall` 就是一次播报调用。
+
+**估算口径**（2026-10-27 实测标定，`glm-5.3-flash` + `effort: off`，连测 4 次）：
+
+| 量 | 取值 | 来源 |
+|---|---|---|
+| 输入 token / 次 | 102 | 实测 `usage.prompt_tokens` |
+| 输出 token / 字 | 0.56 | 实测 38~42 字 → 19~23 token |
+| 输入价 / 输出价 | $0.15 / $0.50 每百万 | 官方价目（Go 计划） |
+| 月额度 | $60 | 官方价目 Monthly limit |
+
+**基线（2026-10-27 记录）**：月额度已用 48%（11-17 重置）；当日 24 次播报、578 字、约 **$0.00053（0.004 元）**，
+占月额度 **0.0009%**——换算下来，月额度的 1% ≈ 27,000 次播报。
+
+所以：**播报的消耗在账号总额度里基本是四舍五入级别的**，月度百分比的变化几乎全部来自会话主模型。
+
+### 换模型怎么做
+
+改 `cordis.patch.yml` 两处（provider 的 `models` 列表 + `progress-summary` 的 `model`），**重启 DSH**。
+换之前先用探测器确认现状：
 
 ```bash
 npm run probe:free          # 只测名字带 free 的
 npm run probe:free -- --all # 连付费的一起测
 ```
-
-探测到可用模型后，把 `cordis.patch.yml` 里 `progress-summary` 的 `model` 改成它，重启 DSH 即可。
 
 ### 其它两个坑（与模型无关）
 
