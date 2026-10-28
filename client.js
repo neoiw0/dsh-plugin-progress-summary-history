@@ -20,12 +20,6 @@ window.__ModuleLoader__.load({
     const KIND = 'progress-history'
     const PROJECTION = 'progressHistory'
 
-    const diagStyle = {
-      fontSize: 10,
-      opacity: 0.45,
-      padding: '2px 0 6px',
-      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-    }
     const wrapStyle = {
       boxSizing: 'border-box',
       display: 'flex',
@@ -226,17 +220,6 @@ window.__ModuleLoader__.load({
         }
       }, [lines.length])
 
-      // 诊断行：面板到底绑在哪个会话、拿到多少条、最近一条是什么时候。
-      const sessionTag = (props && props.sessionId ? String(props.sessionId).slice(0, 8) : '?')
-      const lastAt = lines.length > 0 ? (lines[lines.length - 1] || {}).at : 0
-      const diag = React.createElement(
-        'div',
-        { style: { ...diagStyle, 'data-progress-history-diag': '' } },
-        '会话 ' + sessionTag + ' · ' + (fromStore !== undefined ? 'store' : 'projection') +
-        ' · ' + lines.length + ' 条 · 最近 ' +
-          (lastAt ? new Date(lastAt).toLocaleTimeString('zh-CN') : '无'),
-      )
-
       if (lines.length === 0) {
         const message = projectionKnown
           ? '这条会话还没有进度播报。agent 每运行一段、新推理足够多时，dsh-progress-summary 就会写入一条。'
@@ -244,7 +227,6 @@ window.__ModuleLoader__.load({
         return React.createElement(
           'div',
           { style: wrapStyle, 'data-progress-history': '' },
-          diag,
           React.createElement('div', { style: emptyStyle }, message),
         )
       }
@@ -262,8 +244,7 @@ window.__ModuleLoader__.load({
         )
       }
       children.push(React.createElement('div', { key: 'end', ref: endRef, style: { height: '1px' } }))
-      // 诊断行放在末尾：面板会自动滚到底部，放末尾才一定可见。
-      return React.createElement('div', { style: wrapStyle, 'data-progress-history': '' }, children.concat([diag]))
+      return React.createElement('div', { style: wrapStyle, 'data-progress-history': '' }, children)
     }
 
     /** tab 标题。 */
