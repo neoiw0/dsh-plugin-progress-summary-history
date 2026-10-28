@@ -1,3 +1,10 @@
+## 0.1.9 — 2026-10-28
+
+- 修：播报出现 0~10 字的碎片行/空行。根因是 `effort: 'off'` 在适配器里被翻译成"不发字段"，
+  且模型条目缺 `reasoningEfforts` 导致 effort 静默失效，GLM 按默认思考吃光 `maxTokens` 预算。
+- 加：模型条目补 `reasoningEfforts` + `compat.thinkingFormat: zai`，实测思考归零（短输出 6.1%→0%、空输出 36%→1%、中位耗时 3.5~6.8s→2.1s）。
+- 加：`npm run usage` 用量核对（官方额度接口 + 本地调用统计 + 标定估算）。
+
 # Changelog
 
 ## 0.1.5

@@ -182,6 +182,36 @@ rolling  滚动窗口   weekly 本周   monthly 本月
 
 所以：**播报的消耗在账号总额度里基本是四舍五入级别的**，月度百分比的变化几乎全部来自会话主模型。
 
+### 关掉思考：`effort: 'off'` 不够（2026-10-28 实测）
+
+配 `effort: 'off'` **不等于**关掉思考。实测踩过的坑：
+
+- 适配器把 `off` 翻译成"**不发送** `reasoning_effort` 字段"，而不是发 `"off"`；
+- 模型条目没写 `reasoningEfforts` 时，宿主认为该模型"不支持推理"，`off` 会被判无效并**静默回落**；
+- GLM 于是按默认行为思考，思考 token 与正文共用 `maxTokens`，正文被挤成 0~10 字的碎片。
+
+**正确写法**（模型条目，两个字段缺一不可）：
+
+```yaml
+          - id: glm-5.3-flash
+            contextWindow: 200000
+            reasoningEfforts:      # 让宿主认定"该模型支持推理"，effort 才不会被丢弃
+              'off': 'off'
+              high: high
+            compat:
+              thinkingFormat: zai  # 让适配器在 effort=off 时发 thinking:{type:"disabled"}
+```
+
+> YAML 1.1 会把裸写 `off` 解析成布尔 `false`，**必须加引号**：`'off': 'off'`。
+
+效果（同一模型、同一提示词，134 次调用统计）：
+
+| 指标 | 修复前 | 修复后 |
+|---|---|---|
+| 短输出（<15 字） | 6.1% | **0%** |
+| 空输出 | 36% | **1%** |
+| 中位耗时 | 3.5~6.8 秒 | **2.1 秒** |
+
 ### 换模型怎么做
 
 改 `cordis.patch.yml` 两处（provider 的 `models` 列表 + `progress-summary` 的 `model`），**重启 DSH**。

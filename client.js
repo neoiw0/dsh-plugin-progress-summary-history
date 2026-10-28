@@ -20,6 +20,12 @@ window.__ModuleLoader__.load({
     const KIND = 'progress-history'
     const PROJECTION = 'progressHistory'
 
+    const diagStyle = {
+      fontSize: 10,
+      opacity: 0.45,
+      padding: '2px 0 6px',
+      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+    }
     const wrapStyle = {
       boxSizing: 'border-box',
       display: 'flex',
@@ -183,17 +189,34 @@ window.__ModuleLoader__.load({
 
     /** 右侧栏页正文：时间正序、字号分档、重点着色。 */
     function ProgressHistoryBody(props) {
+      // 实时数据源：会话库里的投影值（DSH 自己的面板都这么读，切换会话/新写入都会触发重渲染）。
+      // useProjection 只作为兜底：它绑定的是「面板打开时那个会话」，会话切换后会读到旧值。
+      const useSessions = props && typeof props.useSessions === 'function' ? props.useSessions : null
       const useProjection = props && typeof props.useProjection === 'function' ? props.useProjection : null
-      let value
-      let projectionKnown = false
+      const sessionId = props && typeof props.sessionId === 'string' ? props.sessionId : ''
+
+      let fromStore
       try {
-        if (useProjection) {
-          value = useProjection(PROJECTION)
-          projectionKnown = value !== undefined
+        if (useSessions && sessionId !== '') {
+          fromStore = useSessions((state) => {
+            const row = state && state.byId ? state.byId[sessionId] : null
+            const values = row && row.projectionValues ? row.projectionValues : null
+            return values ? values[PROJECTION] : undefined
+          })
         }
       } catch (error) {
-        value = undefined
+        fromStore = undefined
       }
+
+      let fromProjection
+      try {
+        if (useProjection) fromProjection = useProjection(PROJECTION)
+      } catch (error) {
+        fromProjection = undefined
+      }
+
+      const value = fromStore !== undefined ? fromStore : fromProjection
+      const projectionKnown = value !== undefined
       const lines = (value && Array.isArray(value.lines)) ? value.lines : []
       const endRef = React.useRef(null)
       React.useEffect(() => {
@@ -203,6 +226,17 @@ window.__ModuleLoader__.load({
         }
       }, [lines.length])
 
+      // 诊断行：面板到底绑在哪个会话、拿到多少条、最近一条是什么时候。
+      const sessionTag = (props && props.sessionId ? String(props.sessionId).slice(0, 8) : '?')
+      const lastAt = lines.length > 0 ? (lines[lines.length - 1] || {}).at : 0
+      const diag = React.createElement(
+        'div',
+        { style: { ...diagStyle, 'data-progress-history-diag': '' } },
+        '会话 ' + sessionTag + ' · ' + (fromStore !== undefined ? 'store' : 'projection') +
+        ' · ' + lines.length + ' 条 · 最近 ' +
+          (lastAt ? new Date(lastAt).toLocaleTimeString('zh-CN') : '无'),
+      )
+
       if (lines.length === 0) {
         const message = projectionKnown
           ? '这条会话还没有进度播报。agent 每运行一段、新推理足够多时，dsh-progress-summary 就会写入一条。'
@@ -210,6 +244,7 @@ window.__ModuleLoader__.load({
         return React.createElement(
           'div',
           { style: wrapStyle, 'data-progress-history': '' },
+          diag,
           React.createElement('div', { style: emptyStyle }, message),
         )
       }
@@ -227,7 +262,8 @@ window.__ModuleLoader__.load({
         )
       }
       children.push(React.createElement('div', { key: 'end', ref: endRef, style: { height: '1px' } }))
-      return React.createElement('div', { style: wrapStyle, 'data-progress-history': '' }, children)
+      // 诊断行放在末尾：面板会自动滚到底部，放末尾才一定可见。
+      return React.createElement('div', { style: wrapStyle, 'data-progress-history': '' }, children.concat([diag]))
     }
 
     /** tab 标题。 */
