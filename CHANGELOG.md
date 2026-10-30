@@ -1,3 +1,17 @@
+## 0.3.2 — 2026-10-30
+
+- 修：设置里的开关不出现。根因是 `Config` 里用 `createRequire` 引入 `@deepseek-ai/schemastery`
+  在 DSH 运行时解析失败（`schema=schemastery missing`），配置 schema 没被注册，表单也就不存在。
+  改回**静态 import** 后 `configKeys=enabled`，设置页出现「进度历史」分区与开关。
+- 改：开关注册为独立设置分区（与「思考链翻译」同款），并额外注册到「通用设置」一行。
+- 加：`scripts/check.mjs` 在本地缺 schemastery 时自动放最小垫片，保证离线自检可跑。
+
+## 0.3.0 — 2026-10-30
+
+- 加：设置 → 通用 里的总开关（`enabled`，`.volatile()` 即时生效）。
+- 加：`scripts/patch-narrator.mjs`（可重放/可回滚）：P1 初学者友好提示词、P2 摘录改为"上次总结到现在"。
+- 加：npm 脚本 `patch:narrator` / `patch:narrator:check` / `patch:narrator:revert`。
+
 ## 0.2.1 — 2026-10-30
 
 - 文档：记录"长回合打满 `maxPerTurn`（默认 40）导致静默停播"的实测现场与推荐配置（300 次）。

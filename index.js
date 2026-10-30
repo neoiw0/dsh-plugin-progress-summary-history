@@ -7,11 +7,18 @@
 import { appendFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
+import z from '@deepseek-ai/schemastery'
 
 export const name = 'progress-history'
 
 /** 只依赖投影注册表；缺失时本插件不激活，也不会拖累启动。 */
 export const inject = ['sessionProjections']
+
+/** 设置页里的开关：`volatile` 让改动即时生效，不需要重启。 */
+export const Config = z.object({
+  /** 总开关：关掉后面板不再累积新条目（已有内容保留）。 */
+  enabled: z.boolean().default(true).volatile(),
+})
 
 const RECORD = 'plugin:progress-summary/line'
 const MAX_LINES = 200
@@ -27,14 +34,26 @@ function note(message) {
 
 const schema = { parse: value => value }
 
-export function apply(ctx) {
-  note('apply projection progressHistory')
+export function apply(ctx, raw = {}) {
+  /** 读实时配置：设置页改动后，这里拿到的是 ref 的最新值。 */
+  const enabled = () => {
+    const value = raw && raw.enabled
+    if (value !== null && typeof value === 'object' && typeof value.get === 'function') {
+      const current = value.get()
+      return current === undefined ? true : current !== false
+    }
+    return value === undefined ? true : value !== false
+  }
+  note('apply projection progressHistory' + (enabled() ? '' : ' (disabled by config)')
+
+    + ' configKeys=' + (raw && typeof raw === 'object' ? Object.keys(raw).join(',') || '(none)' : String(raw)))
   ctx.sessionProjections.register({
     key: 'progressHistory',
     stateVersion: 1,
     stateSchema: schema,
     init: () => ({ lines: [], latest: '', updatedAt: 0 }),
     apply: (state, event) => {
+      if (!enabled()) return state
       if (event.type !== RECORD) return state
       const data = event.data || {}
       const text = typeof data.line === 'string' ? data.line.trim() : ''

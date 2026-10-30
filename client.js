@@ -20,6 +20,15 @@ window.__ModuleLoader__.load({
     const KIND = 'progress-history'
     const PROJECTION = 'progressHistory'
 
+    const sectionStyle = { padding: '8px 0 4px' }
+    const toggleRowStyle = {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: '16px',
+      padding: '12px 0',
+    }
+    const toggleHintStyle = { fontSize: '12px', opacity: 0.6, lineHeight: '18px' }
     const wrapStyle = {
       boxSizing: 'border-box',
       display: 'flex',
@@ -181,6 +190,87 @@ window.__ModuleLoader__.load({
       return Math.round(diff / (24 * 60 * minute)) + ' 天前'
     }
 
+    /** 一个不会抛错的只读表单兜底：拿不到配置表单时也能把开关画出来。 */
+    function fallbackForm(enabled) {
+      const snapshot = { value: { enabled }, revision: 0, writable: false }
+      return {
+        subscribe: () => () => {},
+        getSnapshot: () => snapshot,
+        set: async () => {},
+        mutate: async () => {},
+      }
+    }
+
+    /** 设置页里的开关卡片：控制是否继续累积进度历史。 */
+    function ProgressHistoryPanel(props) {
+      const form = (props && props.form) || fallbackForm(true)
+      const subscribe = React.useCallback(callback => form.subscribe(callback), [form])
+      const snapshot = React.useSyncExternalStore(subscribe, () => form.getSnapshot())
+      const enabled = (snapshot.value || {}).enabled !== false
+      const readOnly = snapshot.writable === false
+      const toggle = () => {
+        if (readOnly) return
+        void form.set('enabled', !enabled)
+      }
+      return React.createElement(
+        'div',
+        { style: sectionStyle },
+        React.createElement('div', { style: { fontSize: '16px', fontWeight: 600, marginBottom: '4px' } }, '进度历史'),
+        React.createElement('div', { style: toggleHintStyle },
+          '在右侧栏记录 agent 的运行进度：每运行一段就多一条白话说明，方便回头看它做了什么。'),
+        React.createElement(
+          'div',
+          { style: toggleRowStyle },
+          React.createElement(
+            'div',
+            { style: { minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' } },
+            React.createElement('span', { style: { fontSize: '14px', lineHeight: '22px' } }, '开启进度历史'),
+            React.createElement('span', { style: toggleHintStyle },
+              enabled
+                ? '开启中：新的进度说明会继续累积。'
+                : '已关闭：不再累积新条目（已有内容保留）。'),
+          ),
+          React.createElement(
+            'button',
+            {
+              type: 'button',
+              role: 'switch',
+              'aria-checked': enabled,
+              'aria-label': '开启进度历史',
+              disabled: readOnly,
+              onClick: toggle,
+              style: {
+                flex: '0 0 auto',
+                width: '36px',
+                height: '20px',
+                padding: 0,
+                borderRadius: '10px',
+                border: 'none',
+                cursor: readOnly ? 'default' : 'pointer',
+                background: enabled
+                  ? 'var(--dsw-alias-state-business-primary, #4b6fff)'
+                  : 'var(--dsw-alias-interactive-bg-hover, #d0d0d0)',
+                position: 'relative',
+                transition: 'background 120ms ease',
+              },
+            },
+            React.createElement('span', {
+              style: {
+                position: 'absolute',
+                top: '2px',
+                left: enabled ? '18px' : '2px',
+                width: '16px',
+                height: '16px',
+                borderRadius: '50%',
+                background: '#fff',
+                transition: 'left 120ms ease',
+              },
+            }),
+          ),
+        ),
+      )
+    }
+
     /** 右侧栏页正文：时间正序、字号分档、重点着色。 */
     function ProgressHistoryBody(props) {
       // 实时数据源：会话库里的投影值（DSH 自己的面板都这么读，切换会话/新写入都会触发重渲染）。
@@ -301,6 +391,26 @@ window.__ModuleLoader__.load({
           style.textContent = '[data-progress-summary]{cursor:pointer}'
           document.head.appendChild(style)
           scope.effect(() => () => style.remove(), 'progress-history bar cursor')
+        })
+      })
+
+      // 设置里的入口。命名空间 = cordis.patch.yml 里本插件的行 id（progress-history）。
+      safe('settings section', () => {
+        ctx.inject(['configForms'], configCtx => {
+          const registry = configCtx && configCtx.configForms
+          const form = registry && typeof registry.get === 'function'
+            ? registry.get('progress-history')
+            : undefined
+          // 主入口：设置左侧导航里的独立分区（与「思考链翻译」同款）。
+          configCtx.slots.inject('settings.section', () => configCtx.slots.register(
+            { name: 'settings.section', id: 'progress-history', order: 70, label: '进度历史' },
+            () => React.createElement(ProgressHistoryPanel, { form }),
+          ))
+          // 额外入口：设置 → 通用 里的一行开关。
+          configCtx.slots.inject('settings.general.item', () => configCtx.slots.register(
+            { name: 'settings.general.item', id: 'progress-history', order: 62 },
+            () => React.createElement(ProgressHistoryPanel, { form }),
+          ))
         })
       })
 

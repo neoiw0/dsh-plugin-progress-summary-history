@@ -4,10 +4,42 @@
  * 这三步能挡住「客户端 bundle 语法错误」这一类会让 DSH 整个窗口起不来的事故。
  */
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+// `@deepseek-ai/schemastery` 由 DSH 运行时提供，本地仓库里没有。
+// 先放一个最小垫片，保证 index.js 的静态 import 能解析（只覆盖本项目用到的 API）。
+const shimDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'node_modules', '@deepseek-ai', 'schemastery')
+if (!existsSync(shimDir)) {
+  mkdirSync(shimDir, { recursive: true })
+  writeFileSync(join(shimDir, 'index.js'), [
+    'function field(defaultValue) {',
+    '  const schema = function (value) { return value === undefined ? defaultValue : value }',
+    '  schema.default = (value) => field(value)',
+    '  schema.volatile = () => schema',
+    '  return schema',
+    '}',
+    'const z = {',
+    '  boolean: () => field(false),',
+    '  string: () => field(""),',
+    '  number: () => field(0),',
+    '  object: (shape) => {',
+    '    const schema = function (value) {',
+    '      const input = value || {}',
+    '      const output = {}',
+    '      for (const key of Object.keys(shape)) output[key] = shape[key](input[key])',
+    '      return output',
+    '    }',
+    '    return schema',
+    '  },',
+    '}',
+    'export default z',
+    '',
+  ].join(String.fromCharCode(10)))
+  writeFileSync(join(shimDir, 'package.json'), JSON.stringify({ name: '@deepseek-ai/schemastery', version: '0.0.0-shim', main: 'index.js' }, null, 2))
+}
+
 
 const here = dirname(fileURLToPath(import.meta.url))
 const root = join(here, '..')

@@ -229,6 +229,46 @@ rolling  滚动窗口   weekly 本周   monthly 本月
 
 > 别设 `maxPerTurn: 0`：源码判断是 `calls >= maxPerTurn`，0 等于**一次都不播**。
 
+### 设置里的开关（0.3.0 起）
+
+插件自带一个总开关，位置在 **设置（点头像 → 设置）→ 左侧「进度历史」分区**，和「思考链翻译」并列。
+关掉后不再累积新条目（已有内容保留），改动**即时生效**，不用重启。
+
+开关的值会写进 profile 的 `cordis.patch.yml`：
+
+```yaml
+- id: progress-history
+  name: dsh-plugin-progress-summary-history
+  config:
+    enabled: true
+```
+
+实现方式（和 DSH 自家插件一致）：
+
+- 宿主导出 `Config`（`@deepseek-ai/schemastery` 的 schema，`enabled` 标 `.volatile()` → 设置页改动即时送达宿主）
+- 客户端用 `ctx.inject(['configForms'])` 拿到表单，注册到 `settings.general.item` 槽位
+- 宿主在投影折叠时读实时值：`if (!enabled()) return state`
+
+### 给第三方插件打补丁：改提示词与摘录范围（0.3.0 起）
+
+`dsh-progress-summary` 没有开放"提示词"和"摘录范围"的配置项，只能改它装好的 `narrator.js`。
+本仓库带一个**可重放**的补丁脚本：
+
+```bash
+npm run patch:narrator:check    # 只看两个补丁在不在
+npm run patch:narrator          # 打补丁（首次会留 .bak-progress-patch 备份）
+npm run patch:narrator:revert   # 从备份还原
+```
+
+两个补丁：
+
+| 补丁 | 改什么 | 为什么 |
+|---|---|---|
+| P1 | 中文提示词加一句"写给完全不懂技术的读者：用日常语言，不用行话；必须出现的技术名词要用括号简单解释一句" | 播报要初学者能看懂 |
+| P2 | 摘录从"最近 `excerptChars` 字"改成"**上次总结到现在的全部新增推理**"（上限 4000 字） | 长间隔里只看到尾巴会漏掉前因 |
+
+> 插件升级（`pnpm add` 重装）会覆盖 `narrator.js`，届时重跑 `npm run patch:narrator` 即可。
+
 ### 换模型怎么做
 
 改 `cordis.patch.yml` 两处（provider 的 `models` 列表 + `progress-summary` 的 `model`），**重启 DSH**。

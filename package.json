@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-progress-summary-history",
-  "version": "0.2.1",
+  "version": "0.3.2",
   "private": false,
   "type": "module",
   "main": "index.js",
@@ -60,7 +60,10 @@
     "verify:narrator": "node scripts/verify-narrator.mjs",
     "probe:free": "node scripts/probe-free-models.mjs",
     "usage": "node scripts/usage-report.mjs",
-    "usage:record": "node scripts/usage-report.mjs --record"
+    "usage:record": "node scripts/usage-report.mjs --record",
+    "patch:narrator": "node scripts/patch-narrator.mjs --apply",
+    "patch:narrator:check": "node scripts/patch-narrator.mjs",
+    "patch:narrator:revert": "node scripts/patch-narrator.mjs --revert"
   },
   "repository": {
     "type": "git",
