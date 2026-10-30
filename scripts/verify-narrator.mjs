@@ -106,6 +106,24 @@ if (publish) {
 }
 
 const width = Math.max(...rows.map((row) => row.label.length))
+// 本回合播报次数 vs 上限：maxPerTurn 打满后 bar 会静默停更，容易被误判为"插件坏了"。
+const turnIndex = lines.map((line) => line.indexOf('turn/start')).filter((index) => index >= 0).pop()
+const callsInTurn = turnIndex === undefined ? 0 : lines.slice(turnIndex).filter((line) => line.includes('prepareCall ok')).length
+let cap = 40
+try {
+  const patchText = readFileSync(PATCH, 'utf8')
+  const capMatch = patchText.match(/maxPerTurn:\s*(\d+)/)
+  if (capMatch) cap = Number(capMatch[1])
+} catch {
+  /* 读不到就按插件默认 40 */
+}
+rows.push({
+  status: callsInTurn >= cap ? 'WARN' : 'OK',
+  label: 'per-turn calls',
+  detail: '本回合已播报 ' + callsInTurn + ' 次 / 上限 ' + cap +
+    (callsInTurn >= cap ? '（已打满：本回合不会再播报，等下个回合；把 maxPerTurn 调大即可）' : ''),
+})
+
 for (const row of rows) console.log(row.status.padEnd(6) + row.label.padEnd(width + 2) + row.detail)
 
 const bad = rows.filter((row) => row.status === 'FAIL' || row.status === 'STALE')
