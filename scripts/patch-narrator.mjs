@@ -18,7 +18,12 @@ import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
-const TARGET = join(homedir(), '.dsh', 'profiles', 'desktop', 'node_modules', 'dsh-progress-summary', 'narrator.js')
+// 默认打补丁到已安装副本；`--target <dir>` 可指向源码目录（用于给 fork 提交补丁）。
+const targetIndex = process.argv.indexOf('--target')
+const targetDir = targetIndex >= 0 && process.argv[targetIndex + 1]
+  ? process.argv[targetIndex + 1]
+  : join(homedir(), '.dsh', 'profiles', 'desktop', 'node_modules', 'dsh-progress-summary')
+const TARGET = join(targetDir, 'narrator.js')
 const BACKUP = TARGET + '.bak-progress-patch'
 
 /** P1：原文的中文提示词四行 → 初学者友好版本。 */
@@ -75,7 +80,7 @@ const text = readFileSync(TARGET, 'utf8')
 const hasPrompt = text.includes(PROMPT_NEW)
 const hasExcerpt = text.includes('const spanChars = Math.min(Math.max(')
 const hasOff = text.includes('globalThis.__dshNarratorOff === true')
-const INDEX_TARGET = join(homedir(), '.dsh', 'profiles', 'desktop', 'node_modules', 'dsh-progress-summary', 'index.js')
+const INDEX_TARGET = join(targetDir, 'index.js')
 const indexText = existsSync(INDEX_TARGET) ? readFileSync(INDEX_TARGET, 'utf8') : ''
 const hasCap = indexText.includes('max(4096)') && indexText.includes('clamp(merged.maxTokens, 16, 4096')
 

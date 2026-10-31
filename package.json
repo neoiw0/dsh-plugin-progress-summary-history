@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-progress-summary-history",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": false,
   "type": "module",
   "main": "index.js",
@@ -63,7 +63,9 @@
     "usage:record": "node scripts/usage-report.mjs --record",
     "patch:narrator": "node scripts/patch-narrator.mjs --apply",
     "patch:narrator:check": "node scripts/patch-narrator.mjs",
-    "patch:narrator:revert": "node scripts/patch-narrator.mjs --revert"
+    "patch:narrator:revert": "node scripts/patch-narrator.mjs --revert",
+    "usage:plugin": "node scripts/usage-plugin.mjs",
+    "usage:plugin:record": "node scripts/usage-plugin.mjs --record"
   },
   "repository": {
     "type": "git",

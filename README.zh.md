@@ -290,6 +290,50 @@ npm run patch:narrator:revert   # 从备份还原
 
 `muse-spark-*-contributor` 名字像免费，但官方价目是 $0.10/$0.20，**不是免费**。
 
+### 用量报表：按"模型月额度"口径（0.4.1 起）
+
+```bash
+npm run usage:plugin              # 最近 30 天
+npm run usage:plugin -- --days 7  # 最近 7 天
+npm run usage:plugin:record       # 追加快照到 ~/.dsh/narrator-plugin-usage.jsonl
+npm run usage:plugin -- --json    # 机器可读
+```
+
+口径要点：
+
+- **只统计播报插件自己**，不是账号总量；
+- 数据源是本地会话里的 `plugin:progress-summary/line` 记录（条数、字数可逐条复核），
+  **不读账号级 `/usage` 百分比**（换账号后不可比）；
+- 占比分母是**该模型自己的月额度**（GLM-5.3-Flash $60、DeepSeek V4.1 Flash $80 …），
+  不是账号共享额度；
+- 花费 = 输入 token × 输入价 + 输出 token × 输出价，价目写在脚本的 `MODELS` 表里。
+
+估算参数（实测标定，换模型/改配置后需重标）：
+
+| 参数 | 取值 | 来源 |
+|---|---|---|
+| 每条播报的调用数 | 1.04 | 实测 57 次调用 → 55 条发布 |
+| 输入 token（摘录 300 字） | 409 | 实测 prompt_tokens |
+| 输入 token（摘录 4000 字） | 1000 | 实测 ≈ 0.82×字数 + 160 |
+| 输出 token（思考关） | 正文×0.56 | 实测 |
+| 输出 token（思考开） | 正文×3.5 | 实测（旧配置） |
+
+历史阶段写在脚本的 `ERAS` 表里（哪天换了模型/开关，追加一段即可）。
+
+### 对上游插件的改动怎么发布（0.4.1 起）
+
+我们改了第三方插件 `dsh-progress-summary` 的 4 处，已 **fork 并推送**到：
+[neoiw0/dsh-progress-summary](https://github.com/neoiw0/dsh-progress-summary)（MIT，版权归原作者 tastynoob），
+补丁说明见该仓库的 `PATCHES.md`。
+
+三种用法：
+
+1. **给已安装副本打补丁**（推荐，改动最小）：`npm run patch:narrator`
+2. **给源码目录打补丁**（用于向上游提 PR）：`node scripts/patch-narrator.mjs --target <源码目录> --apply`
+3. **直接从 fork 安装**：`pnpm add github:neoiw0/dsh-progress-summary`
+
+> 插件升级会覆盖已安装副本，重跑一次 `npm run patch:narrator` 即可。
+
 ### 换模型怎么做
 
 改 `cordis.patch.yml` 两处（provider 的 `models` 列表 + `progress-summary` 的 `model`），**重启 DSH**。

@@ -1,3 +1,10 @@
+## 0.4.1 — 2026-11-01
+
+- 加：`npm run usage:plugin` —— 播报插件自身用量，按**模型月额度**口径（不是账号额度），
+  数据源为本地会话记录，支持 `--days` / `--json` / `--record`（快照落 `~/.dsh/narrator-plugin-usage.jsonl`）。
+- 加：`patch-narrator.mjs --target <dir>`，可直接给第三方源码目录打补丁（用于向上游提 PR）。
+- 文档：对上游插件的 4 处改动已 fork 并推送 → https://github.com/neoiw0/dsh-progress-summary （含 PATCHES.md）。
+
 ## 0.4.0 — 2026-10-31
 
 - 加：**真总开关**。设置里关闭后，补丁 P3 让第三方插件连模型请求都不发（零词元消耗）；
