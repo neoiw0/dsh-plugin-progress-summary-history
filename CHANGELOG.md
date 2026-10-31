@@ -4,6 +4,7 @@
   数据源为本地会话记录，支持 `--days` / `--json` / `--record`（快照落 `~/.dsh/narrator-plugin-usage.jsonl`）。
 - 加：`patch-narrator.mjs --target <dir>`，可直接给第三方源码目录打补丁（用于向上游提 PR）。
 - 文档：对上游插件的 4 处改动已 fork 并推送 → https://github.com/neoiw0/dsh-progress-summary （含 PATCHES.md）。
+- 发布：fork 也出了安装包 v0.1.0-neoiw0.1（tgz 29,354 字节），无需 git 即可安装。
 
 ## 0.4.0 — 2026-10-31
 

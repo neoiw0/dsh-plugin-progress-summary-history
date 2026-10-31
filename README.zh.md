@@ -330,7 +330,13 @@ npm run usage:plugin -- --json    # 机器可读
 
 1. **给已安装副本打补丁**（推荐，改动最小）：`npm run patch:narrator`
 2. **给源码目录打补丁**（用于向上游提 PR）：`node scripts/patch-narrator.mjs --target <源码目录> --apply`
-3. **直接从 fork 安装**：`pnpm add github:neoiw0/dsh-progress-summary`
+3. **直接从 fork 安装**（两种，任选）：
+   ```bash
+   # 需要本机有 git
+   pnpm add github:neoiw0/dsh-progress-summary
+   # 或者用打好的安装包（不需要 git）
+   pnpm add https://github.com/neoiw0/dsh-progress-summary/releases/download/v0.1.0-neoiw0.1/dsh-progress-summary-0.1.0-neoiw0.1.tgz
+   ```
 
 > 插件升级会覆盖已安装副本，重跑一次 `npm run patch:narrator` 即可。
 
