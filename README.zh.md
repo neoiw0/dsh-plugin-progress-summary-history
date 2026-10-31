@@ -269,6 +269,27 @@ npm run patch:narrator:revert   # 从备份还原
 
 > 插件升级（`pnpm add` 重装）会覆盖 `narrator.js`，届时重跑 `npm run patch:narrator` 即可。
 
+### 真·总开关：关掉后零词元消耗（0.4.0 起）
+
+之前设置里的开关只停"往面板里记"，**播报调用照常发**——所以关掉后仍在烧词元。0.4.0 起改成真总开关：
+
+- 宿主插件把 `enabled` 同步到 `globalThis.__dshNarratorOff`（每 3 秒跟随配置）
+- 第三方插件打补丁 P3：`run()` 开头检查该标志，为 true 时**直接返回，连请求都不发**
+- 设置里关掉 → 下一次判断就停，面板与播报都不再产生任何模型调用
+
+> 补丁 P3 是改第三方插件的 `narrator.js`，升级后需重跑 `npm run patch:narrator`。
+
+### 免费模型（2026-10-31 实测）
+
+网关 `/zen/go/v1/models` 里 `cost.text = 0/0` 的模型：
+
+| 模型 | 状态 | 说明 |
+|---|---|---|
+| `iceman-contributor-free` | ✅ 可用 | 限时免费；**预算需 ≥1024**（它会先烧几百 token 才吐字），耗时 14~25 秒 |
+| `beam-free` | ❌ 403 | "This model is not available in your country" |
+
+`muse-spark-*-contributor` 名字像免费，但官方价目是 $0.10/$0.20，**不是免费**。
+
 ### 换模型怎么做
 
 改 `cordis.patch.yml` 两处（provider 的 `models` 列表 + `progress-summary` 的 `model`），**重启 DSH**。

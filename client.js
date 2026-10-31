@@ -217,7 +217,7 @@ window.__ModuleLoader__.load({
         { style: sectionStyle },
         React.createElement('div', { style: { fontSize: '16px', fontWeight: 600, marginBottom: '4px' } }, '进度历史'),
         React.createElement('div', { style: toggleHintStyle },
-          '在右侧栏记录 agent 的运行进度：每运行一段就多一条白话说明，方便回头看它做了什么。'),
+          '在右侧栏记录 agent 的运行进度：每运行一段就多一条白话说明，方便回头看它做了什么。关闭后不再产生任何模型调用（不消耗词元）。'),
         React.createElement(
           'div',
           { style: toggleRowStyle },
@@ -227,8 +227,8 @@ window.__ModuleLoader__.load({
             React.createElement('span', { style: { fontSize: '14px', lineHeight: '22px' } }, '开启进度历史'),
             React.createElement('span', { style: toggleHintStyle },
               enabled
-                ? '开启中：新的进度说明会继续累积。'
-                : '已关闭：不再累积新条目（已有内容保留）。'),
+                ? '开启中：会持续生成进度说明，每条约消耗几十到上千个词元。'
+                : '已关闭：不再产生任何模型调用（零词元消耗），已有内容保留。'),
           ),
           React.createElement(
             'button',

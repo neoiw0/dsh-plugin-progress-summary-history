@@ -28,12 +28,14 @@ const SESSION_ID = process.env.OPENCODE_SESSION_ID || 'dsh-plugin-progress-summa
 
 /** 实测标定值（2026-10-27，glm-5.3-flash + effort:off，连测 4 次）： */
 const CALIBRATION = {
-  model: 'glm-5.3-flash',
-  promptTokens: 102,      // 每次输入 token（固定 system + 短 user）
-  completionPerChar: 0.56, // 输出 token / 正文字符（实测 38~42 字 → 19~23 token）
-  priceIn: 0.15,           // 美元 / 百万输入 token（Go 计划官方价目）
-  priceOut: 0.5,           // 美元 / 百万输出 token
-  monthlyQuotaUsd: 60,     // Go 计划该模型的月额度（官方价目表 Monthly limit）
+  model: 'iceman-contributor-free',
+  // 2026-10-31 起播报改用限时免费模型：官方价目 cost.text = 0/0，所以花费恒为 0。
+  // 下面仍保留 token 估算，方便核对"关掉后是否真的不消耗"。
+  promptTokens: 1000,     // 每次输入 token（实测 ≈ 0.82×摘录字数 + 160；摘录 300~4000 字 → 409~3347）
+  completionPerChar: 0.56, // 输出 token / 正文字符（该模型会先烧几百 token 才吐字，此处只按正文算下界）
+  priceIn: 0,              // 美元 / 百万输入 token（免费模型）
+  priceOut: 0,             // 美元 / 百万输出 token
+  monthlyQuotaUsd: 60,     // Go 计划额度（免费模型不占这条）
 }
 
 const args = process.argv.slice(2)
@@ -141,8 +143,11 @@ console.log('  估算花费        $' + costLower.toFixed(6) + ' ~ $' + cost.toF
   '  ≈ ' + (costLower * 7.1).toFixed(3) + ' ~ ' + (cost * 7.1).toFixed(3) + ' 元')
 console.log('  区间含义        下界＝只算成功出文的调用；上界＝把被中断的空调用也按满额算')
 console.log('  占月额度        ' + ((cost / CALIBRATION.monthlyQuotaUsd) * 100).toFixed(4) + '%（月额度 $' + CALIBRATION.monthlyQuotaUsd + '）')
-console.log('  换算            月额度的 1% ≈ $' + (CALIBRATION.monthlyQuotaUsd / 100).toFixed(2) + ' ≈ ' +
-  Math.round((CALIBRATION.monthlyQuotaUsd / 100) / (cost / Math.max(totalCalls, 1))) + ' 次播报')
+const perCall = cost / Math.max(totalCalls, 1)
+console.log('  换算            月额度的 1% ≈ $' + (CALIBRATION.monthlyQuotaUsd / 100).toFixed(2) +
+  (perCall > 0
+    ? ' ≈ ' + Math.round((CALIBRATION.monthlyQuotaUsd / 100) / perCall) + ' 次播报'
+    : ' ≈ 不限次数（当前模型免费，不占额度）'))
 
 if (record) {
   const snapshot = {

@@ -44,6 +44,19 @@ export function apply(ctx, raw = {}) {
     }
     return value === undefined ? true : value !== false
   }
+  // 总开关：把「是否启用」同步到全局标志，第三方插件补丁 P3 会读它，
+  // 关掉时连模型请求都不发（零 token 消耗）。配置是 volatile 的，用定时器跟随。
+  const syncKillSwitch = () => {
+    try {
+      globalThis.__dshNarratorOff = !enabled()
+    } catch {
+      /* 极端环境下没有 globalThis 也不该拖垮启动 */
+    }
+  }
+  syncKillSwitch()
+  const killTimer = setInterval(syncKillSwitch, 3000)
+  if (killTimer && typeof killTimer.unref === 'function') killTimer.unref()
+
   note('apply projection progressHistory' + (enabled() ? '' : ' (disabled by config)')
 
     + ' configKeys=' + (raw && typeof raw === 'object' ? Object.keys(raw).join(',') || '(none)' : String(raw)))

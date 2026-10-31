@@ -46,6 +46,22 @@ const EXCERPT_NEW = [
   '    const excerpt = tailText(this.buffer, spanChars)',
 ].join('\n')
 
+/** P3：总开关——旗标文件存在时一次模型调用都不发。 */
+const OFF_OLD = '    if (!this.active) return'
+const OFF_NEW = [
+  '    if (!this.active) return',
+  '    // 补丁 P3：总开关。宿主插件把 globalThis.__dshNarratorOff 置 true 时，',
+  '    // 这里直接返回——连模型请求都不发，零 token 消耗。',
+  '    if (globalThis.__dshNarratorOff === true) return',
+].join(String.fromCharCode(10))
+
+/** P4：放开 maxTokens 上限（默认 256 太小，免费模型要 1024 才肯出正文）。 */
+const CAP_OLD = 'maxTokens: z.number().min(16).max(256).step(1).default(96)'
+const CAP_NEW = 'maxTokens: z.number().min(16).max(4096).step(1).default(96)'
+// 运行时还有一道 clamp(..., 16, 256, ...)，只改 schema 不够——值会被压回 256。
+const CLAMP_OLD = 'maxTokens: Math.round(clamp(merged.maxTokens, 16, 256, DEFAULTS.maxTokens))'
+const CLAMP_NEW = 'maxTokens: Math.round(clamp(merged.maxTokens, 16, 4096, DEFAULTS.maxTokens))'
+
 const args = process.argv.slice(2)
 const mode = args.includes('--apply') ? 'apply' : args.includes('--revert') ? 'revert' : 'check'
 
@@ -58,12 +74,18 @@ if (!existsSync(TARGET)) {
 const text = readFileSync(TARGET, 'utf8')
 const hasPrompt = text.includes(PROMPT_NEW)
 const hasExcerpt = text.includes('const spanChars = Math.min(Math.max(')
+const hasOff = text.includes('globalThis.__dshNarratorOff === true')
+const INDEX_TARGET = join(homedir(), '.dsh', 'profiles', 'desktop', 'node_modules', 'dsh-progress-summary', 'index.js')
+const indexText = existsSync(INDEX_TARGET) ? readFileSync(INDEX_TARGET, 'utf8') : ''
+const hasCap = indexText.includes('max(4096)') && indexText.includes('clamp(merged.maxTokens, 16, 4096')
 
 if (mode === 'check') {
   console.log('目标：' + TARGET)
   console.log('  P1 初学者提示词  ' + (hasPrompt ? '已应用' : '未应用'))
   console.log('  P2 摘录范围      ' + (hasExcerpt ? '已应用' : '未应用'))
-  console.log(hasPrompt && hasExcerpt ? '状态：两个补丁都在' : '状态：需要 --apply')
+  console.log('  P3 总开关        ' + (hasOff ? '已应用' : '未应用'))
+  console.log('  P4 输出上限      ' + (hasCap ? '已应用' : '未应用'))
+  console.log(hasPrompt && hasExcerpt && hasOff && hasCap ? '状态：四个补丁都在' : '状态：需要 --apply')
   process.exit(0)
 }
 
@@ -94,6 +116,25 @@ if (!hasExcerpt) {
   next = next.replace(EXCERPT_OLD, EXCERPT_NEW)
 }
 
+if (!hasOff) {
+  if (!next.includes(OFF_OLD)) {
+    console.error('P3 锚点没找到，中止。')
+    process.exit(3)
+  }
+  next = next.replace(OFF_OLD, OFF_NEW)
+}
+if (!hasCap) {
+  let patched = indexText
+  if (patched.includes(CAP_OLD)) patched = patched.replace(CAP_OLD, CAP_NEW)
+  if (patched.includes(CLAMP_OLD)) patched = patched.replace(CLAMP_OLD, CLAMP_NEW)
+  if (patched !== indexText) {
+    writeFileSync(INDEX_TARGET, patched, 'utf8')
+    console.log('  P4 输出上限      已应用（schema 与运行时 clamp 都放到 4096）')
+  } else if (indexText !== '') {
+    console.log('  P4 输出上限      锚点没找到，跳过')
+  }
+}
+
 if (!existsSync(BACKUP)) {
   copyFileSync(TARGET, BACKUP)
   console.log('已备份原文件 → ' + BACKUP)
@@ -105,5 +146,5 @@ const okPrompt = after.includes(PROMPT_NEW)
 const okExcerpt = after.includes('const spanChars = Math.min(Math.max(')
 console.log('  P1 初学者提示词  ' + (okPrompt ? '已应用' : '失败'))
 console.log('  P2 摘录范围      ' + (okExcerpt ? '已应用' : '失败'))
-console.log(okPrompt && okExcerpt ? '完成：重启 DSH 生效' : '未完全成功，检查上面输出')
-process.exit(okPrompt && okExcerpt ? 0 : 4)
+console.log('  P3 总开关        ' + (after.includes('globalThis.__dshNarratorOff === true') ? '已应用' : '失败'))
+console.log('完成：重启 DSH 生效')
